@@ -78,14 +78,11 @@ public class ConversionController {
             JsonNode root = objectMapper.readTree(jsonInput);
             List<ObjectNode> allRows = new ArrayList<>();
 
-            List<JsonNode> records = extractRecords(root);
-            for (JsonNode record : records) {
-                if (!record.isObject()) continue;
-                processNode((ObjectNode) record, allRows, objectMapper.createObjectNode());
-            }
+            // Recursively process the root
+            processNode(root, allRows, objectMapper.createObjectNode(), "");
 
             if (allRows.isEmpty()) {
-                return ResponseEntity.badRequest().body("No valid data to convert.");
+            	return ResponseEntity.ok("No valid data to convert.");
             }
 
             // Extract headers dynamically
@@ -96,63 +93,39 @@ public class ConversionController {
             headers.forEach(schemaBuilder::addColumn);
             CsvSchema schema = schemaBuilder.build();
 
+            // Use StringWriter instead of StringBuilder
             StringWriter writer = new StringWriter();
             csvMapper.writer(schema).writeValue(writer, allRows);
+
             return ResponseEntity.ok(writer.toString());
 
         } catch (Exception e) {
-            logger.error("Error during JSON to CSV conversion", e);
-            logger.error("Error processing JSON to YAML", e);
-            return ResponseEntity.ok("Error processing JSON to YAML");
+            e.printStackTrace();
+            return ResponseEntity.ok("Error during JSON to CSV conversion");
         }
     }
 
-    private List<JsonNode> extractRecords(JsonNode root) {
-        List<JsonNode> records = new ArrayList<>();
-        if (root.isArray()) {
-            root.forEach(records::add);
-        } else if (root.isObject()) {
-            // Traverse deeply to find arrays of objects
-            Deque<JsonNode> stack = new ArrayDeque<>();
-            stack.push(root);
-            while (!stack.isEmpty()) {
-                JsonNode node = stack.pop();
-                if (node.isArray() && node.size() > 0 && node.get(0).isObject()) {
-                    node.forEach(records::add);
-                } else if (node.isObject()) {
-                    node.elements().forEachRemaining(stack::push);
+    // Process node (same as before)
+    private void processNode(JsonNode node, List<ObjectNode> resultRows, ObjectNode baseRow, String prefix) {
+        if (node.isObject()) {
+            node.fields().forEachRemaining(entry -> {
+                String newPrefix = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
+                processNode(entry.getValue(), resultRows, baseRow, newPrefix);
+            });
+        } else if (node.isArray()) {
+            ArrayNode arrayNode = (ArrayNode) node;
+            for (int i = 0; i < arrayNode.size(); i++) {
+                JsonNode arrayElement = arrayNode.get(i);
+                if (arrayElement.isObject()) {
+                    processNode(arrayElement, resultRows, baseRow, prefix);
+                } else {
+                    baseRow.set(prefix, arrayElement);
+                    resultRows.add(baseRow.deepCopy());
                 }
             }
-        }
-        return records;
-    }
-
-    private void processNode(ObjectNode inputNode, List<ObjectNode> resultRows, ObjectNode baseRow) {
-        Map<String, JsonNode> arrayFields = new LinkedHashMap<>();
-
-        inputNode.fields().forEachRemaining(entry -> {
-            if (entry.getValue().isArray() && entry.getValue().size() > 0 &&
-                    entry.getValue().get(0).isObject()) {
-                arrayFields.put(entry.getKey(), entry.getValue());
-            } else if (!entry.getValue().isObject()) {
-                baseRow.set(entry.getKey(), entry.getValue());
-            }
-        });
-
-        if (arrayFields.isEmpty()) {
-            resultRows.add(baseRow.deepCopy());
         } else {
-            // Explode one array at a time
-            for (Map.Entry<String, JsonNode> entry : arrayFields.entrySet()) {
-                String arrayName = entry.getKey();
-                for (JsonNode item : entry.getValue()) {
-                    if (!item.isObject()) continue;
-                    ObjectNode row = baseRow.deepCopy();
-                    item.fields().forEachRemaining(nestedField -> 
-                        row.set(arrayName + "." + nestedField.getKey(), nestedField.getValue()));
-                    resultRows.add(row);
-                }
-            }
+            baseRow.set(prefix, node);
+            resultRows.add(baseRow.deepCopy());
         }
     }
 }
