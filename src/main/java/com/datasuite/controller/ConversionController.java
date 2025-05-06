@@ -14,6 +14,7 @@ import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.datasuite.dto.ContactFormDto;
+import com.datasuite.service.EmailService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -36,6 +39,9 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 @RestController
 @RequestMapping("/v1/convert")
 public class ConversionController {
+	
+	@Autowired
+	private EmailService emailService;
 
     private static final Logger logger = LoggerFactory.getLogger(ConversionController.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -127,6 +133,52 @@ public class ConversionController {
             baseRow.set(prefix, node);
             resultRows.add(baseRow.deepCopy());
         }
+    }
+
+    @PostMapping("/sendEmail")
+    public ResponseEntity<?> sendContactMessage(@RequestBody ContactFormDto contactForm) {
+    	System.out.println("enter");
+        try {
+            // Validate input
+            if (contactForm.getName() == null || contactForm.getName().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Name is required");
+            }
+            if (contactForm.getEmail() == null || !contactForm.getEmail().contains("@")) {
+                return ResponseEntity.badRequest().body("Valid email is required");
+            }
+            if (contactForm.getMessage() == null || contactForm.getMessage().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Message is required");
+            }
+            if (contactForm.getMessage().length() > 1000) {
+                return ResponseEntity.badRequest().body("Message too long");
+            }
+
+            // Send email
+            emailService.sendEmail(
+                contactForm.getEmail(),
+                "naveenorg56@gmail.com",
+                "New Contact: " + (contactForm.getSubject() != null ? contactForm.getSubject() : "No Subject"),
+                buildEmailContent(contactForm)
+            );
+            return ResponseEntity.ok().body(Map.of(
+                "success", true,
+                "message", "Thank you for your message!"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of(
+                "success", false,
+                "message", "Failed to send message: " + e.getMessage()
+            ));
+        }
+    }
+
+    private String buildEmailContent(ContactFormDto contactForm) {
+        return String.format(
+            "Name: %s\nEmail: %s\n\nMessage:\n%s",
+            contactForm.getName(),
+            contactForm.getEmail(),
+            contactForm.getMessage()
+        );
     }
 }
 
