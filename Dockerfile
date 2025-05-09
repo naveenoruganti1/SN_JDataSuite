@@ -1,13 +1,21 @@
 
-# ---- Step 1: Build the application using Gradle and JDK 21 ----
-FROM gradle:8.4-jdk21 AS build
-WORKDIR /app
-COPY . .
-RUN gradle build --no-daemon
+# Operating System
+FROM ubuntu:latest
 
-# ---- Step 2: Run the built JAR using OpenJDK 21 ----
-FROM eclipse-temurin:21-jdk
-WORKDIR /app
-COPY --from=build /app/build/libs/*.jar app.jar
+# Update Oeration System
+RUN apt update -y
+
+# Install JDK-21
+RUN apt install -y openjdk-21-jdk
+
+# Create a Directory
+RUN mkdir -p datasuite/json
+
+WORKDIR /datasuite/json
+
+# Copy jar file from build directory into new created directory
+COPY build/libs/SN_JDataSuite-1.0.jar .
+
 EXPOSE 8081
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+CMD ["java", "-jar", "SN_JDataSuite-1.0.jar"]

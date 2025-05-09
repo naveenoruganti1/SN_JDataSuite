@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  json-service:
+    build:
+      context: .             # Use root directory
+      dockerfile: Dockerfile # Optional if your file is named Dockerfile
+    ports:
+      - "8081-8085:8081"
+    networks:
+      - host-access
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - SPRING_APPLICATION_NAME=json-service  # Ensure each instance uses the same service name
+
+networks:
+  host-access:
+    driver: bridge
