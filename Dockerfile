@@ -16,6 +16,4 @@ WORKDIR /datasuite/json
 # Copy jar file from build directory into new created directory
 COPY build/libs/SN_JDataSuite-1.0.jar .
 
-EXPOSE 8081
-
 CMD ["java", "-jar", "SN_JDataSuite-1.0.jar"]
