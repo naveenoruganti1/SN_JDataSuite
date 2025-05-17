@@ -1,16 +1,7 @@
+# Use a lightweight JDK 21 base image (significantly smaller than Ubuntu)
+FROM eclipse-temurin:21-jdk-alpine
 
-# Operating System
-FROM ubuntu:latest
-
-# Update Oeration System
-RUN apt update -y
-
-# Install JDK-21
-RUN apt install -y openjdk-21-jdk
-
-# Create a Directory
-RUN mkdir -p datasuite/json
-
+# Set working directory
 WORKDIR /datasuite/json
 
 # Copy jar file from build directory into new created directory
