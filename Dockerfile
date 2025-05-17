@@ -1,5 +1,5 @@
 # Use a lightweight JDK 21 base image (significantly smaller than Ubuntu)
-FROM eclipse-temurin:21-jdk-alpine
+FROM eclipse-temurin:21-jre-alpine
 
 # Set working directory
 WORKDIR /datasuite/json
